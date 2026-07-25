@@ -30,7 +30,7 @@ jobs:
             libglm-dev libglew-dev zlib1g-dev libzstd-dev \
             libcurl4-openssl-dev libspnav-dev libcairo2-dev libpixman-1-dev \
             libgit2-dev libboost-locale-dev libfreetype-dev libharfbuzz-dev \
-            libfontconfig1-dev libprotobuf-dev libnng-dev \
+            libfontconfig1-dev libprotobuf-dev libnng-dev unixodbc-dev \
             libwxgtk3.2-dev libwxgtk-webview3.2-dev \
             libgtk-3-dev libgl-dev libglu1-mesa-dev \
             libngspice0-dev \
