@@ -94,14 +94,16 @@ jobs:
     ####################################################################
     # Configure
     ####################################################################
-
+    - name: Install mold
+      uses: rui314/setup-mold@v1
+      
     - name: Configure KiCad Lite
       run: |
         rm -rf build
 
         cmake \
           -S . \
-          -B build \~
+          -B build \
           -G Ninja \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=/usr \
