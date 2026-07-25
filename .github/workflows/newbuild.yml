@@ -1,0 +1,114 @@
+name: Build KiCad Lite AppImage
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo add-apt-repository -y universe
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build ccache mold pkg-config \
+            python3 gettext protobuf-compiler \
+            libglm-dev libglew-dev zlib1g-dev libzstd-dev \
+            libcurl4-openssl-dev libspnav-dev libcairo2-dev libpixman-1-dev \
+            libgit2-dev libboost-locale-dev libfreetype-dev libharfbuzz-dev \
+            libfontconfig1-dev libprotobuf-dev libnng-dev \
+            libwxgtk3.2-dev libwxgtk-webview3.2-dev \
+            libgtk-3-dev libgl-dev libglu1-mesa-dev \
+            libngspice0-dev \
+            libocct-foundation-dev libocct-modeling-data-dev \
+            libocct-modeling-algorithms-dev libocct-data-exchange-dev \
+            libocct-ocaf-dev libocct-visualization-dev \
+            patchelf file wget libfuse2t64
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DwxWidgets_CONFIG_EXECUTABLE=/usr/bin/wx-config \
+            -DKICAD_BUILD_QA_TESTS=OFF \
+            -DKICAD_SPICE_QA=OFF \
+            -DKICAD_INSTALL_DEMOS=OFF \
+            -DKICAD_BUILD_I18N=OFF \
+            -DKICAD_SIGNAL_INTEGRITY=OFF \
+            -DKICAD_UPDATE_CHECK=OFF \
+            -DKICAD_IDF_TOOLS=OFF \
+            -DKICAD_USE_SENTRY=OFF
+
+      - name: Build
+        run: cmake --build build --parallel "$(nproc)"
+
+      - name: Install to AppDir
+        run: |
+          DESTDIR="$GITHUB_WORKSPACE/AppDir" cmake --install build --strip
+          rm -rf AppDir/usr/share/kicad/demos
+          rm -rf AppDir/usr/share/kicad/3dmodels
+          rm -rf AppDir/usr/share/kicad/packages3d
+          find AppDir -type f \( -name '*.a' -o -name '*.la' \) -delete
+
+      - name: Build AppImage
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
+            -O linuxdeploy.AppImage
+          chmod +x linuxdeploy.AppImage
+
+          DESKTOP_FILE="$(find AppDir/usr/share/applications -type f -iname '*kicad*.desktop' | head -n1)"
+          ICON_FILE="$(find AppDir/usr/share/icons AppDir/usr/share/kicad -type f \
+            \( -iname 'kicad.svg' -o -iname 'kicad.png' -o -iname 'org.kicad.KiCad.svg' -o -iname 'org.kicad.KiCad.png' \) \
+            2>/dev/null | head -n1)"
+
+          test -n "$DESKTOP_FILE"
+          test -n "$ICON_FILE"
+
+          ARGS=(--appdir AppDir --desktop-file "$DESKTOP_FILE" --icon-file "$ICON_FILE")
+          while IFS= read -r exe; do
+            ARGS+=(--executable "$exe")
+          done < <(find AppDir/usr/bin -maxdepth 1 -type f -perm -111 | sort)
+
+          APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 \
+            ./linuxdeploy.AppImage "${ARGS[@]}" --output appimage
+
+          GENERATED="$(find . -maxdepth 1 -type f -name '*.AppImage' ! -name 'linuxdeploy.AppImage' | head -n1)"
+          test -n "$GENERATED"
+          mv "$GENERATED" "KiCad-Lite-${GITHUB_REF_NAME}-x86_64.AppImage"
+          sha256sum "KiCad-Lite-${GITHUB_REF_NAME}-x86_64.AppImage" \
+            > "KiCad-Lite-${GITHUB_REF_NAME}-x86_64.AppImage.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KiCad-Lite-AppImage
+          path: |
+            KiCad-Lite-*.AppImage
+            KiCad-Lite-*.AppImage.sha256
+          compression-level: 0
+
+      - name: Upload to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            KiCad-Lite-*.AppImage
+            KiCad-Lite-*.AppImage.sha256
+          generate_release_notes: true
