@@ -25,12 +25,12 @@ jobs:
           sudo add-apt-repository -y universe
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build ccache mold pkg-config \
+            build-essential cmake ninja-build ccache pkg-config \
             python3 gettext protobuf-compiler \
             libglm-dev libglew-dev zlib1g-dev libzstd-dev \
             libcurl4-openssl-dev libspnav-dev libcairo2-dev libpixman-1-dev \
             libgit2-dev libboost-locale-dev libfreetype-dev libharfbuzz-dev \
-            libfontconfig1-dev libprotobuf-dev libnng-dev unixodbc-dev \
+            libfontconfig1-dev libprotobuf-dev libnng-dev unixodbc-dev libsecret-1-dev \
             libwxgtk3.2-dev libwxgtk-webview3.2-dev \
             libgtk-3-dev libgl-dev libglu1-mesa-dev \
             libngspice0-dev \
