@@ -1,0 +1,110 @@
+name: Build KiCad 10.0.5 Lite AppImage
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-appimage:
+    name: Build KiCad 10.0.5 (Ubuntu 24.04)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          ref: '10.0.5' # 若 tag 为 v10.0.5 请修改为 'v10.0.5'
+          submodules: recursive
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            ccache \
+            python3 \
+            libwxgtk3.2-dev \
+            libglew-dev \
+            libglm-dev \
+            libcurl4-openssl-dev \
+            libgtk-3-dev \
+            libboost-dev \
+            libboost-filesystem-dev \
+            libboost-system-dev \
+            libboost-test-dev \
+            libocct-data-exchange-dev \
+            libocct-foundation-dev \
+            libocct-modeling-algorithms-dev \
+            libocct-modeling-data-dev \
+            libocct-ocaf-dev \
+            libocct-visualization-dev \
+            libngspice0-dev \
+            libnng-dev \
+            protobuf-compiler \
+            libprotobuf-dev \
+            gettext \
+            file \
+            wget \
+            desktop-file-utils
+            
+      - name: Install mold
+        uses: rui314/setup-mold@v1
+        
+      - name: Setup CCache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-ubuntu24.04-kicad10.0.5-${{ github.sha }}
+          restore-keys: |
+            ccache-ubuntu24.04-kicad10.0.5-
+
+      - name: Configure CMake
+        run: |
+          mkdir -p build/linux
+          cd build/linux
+          cmake \
+            -G Ninja \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr \
+            -DKICAD_SCRIPTING_WXPYTHON=OFF \
+            -DKICAD_STDLIB_LIGHT_DEBUG=OFF \
+            -DKICAD_USE_OCC=ON \
+            -DKICAD_SPICE=OFF \
+            -DKICAD_BUILD_I18N=ON \
+            -DKICAD_BUILD_PNS_DEBUG_TOOL=OFF \
+            -DKICAD_BUILD_QA_TESTS=OFF \
+            ../../
+
+      - name: Build KiCad
+        run: |
+          cd build/linux
+          export CCACHE_DIR=$HOME/.cache/ccache
+          ninja
+
+      - name: Install to AppDir
+        run: |
+          cd build/linux
+          # 将编译生成的文件安装到 AppDir 目录
+          DESTDIR=${{ github.workspace }}/AppDir ninja install
+
+      - name: Package AppImage
+        run: |
+          # 下载 linuxdeploy 打包工具
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
+          chmod +x linuxdeploy
+
+          # 在 Ubuntu 24.04 环境下加上 --appimage-extract-and-run 避免缺失 libfuse2 的报错
+          ./linuxdeploy --appimage-extract-and-run \
+            --appdir AppDir \
+            --executable AppDir/usr/bin/kicad \
+            --desktop-file AppDir/usr/share/applications/org.kicad.kicad.desktop \
+            --output appimage
+
+      - name: Upload AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KiCad-10.0.5-Lite-x86_64.AppImage
+          path: "*.AppImage"
