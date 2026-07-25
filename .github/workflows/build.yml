@@ -6,7 +6,7 @@ on:
     tags: [ "10.0.5", "v10.0.5" ]
   workflow_dispatch:
 
-# 赋予创建 Release 和上传附件的写入权限
+# 赋予创建 GitHub Release 的权限
 permissions:
   contents: write
 
@@ -30,8 +30,17 @@ jobs:
             cmake \
             ninja-build \
             ccache \
+            pkg-config \
+            gettext \
+            file \
+            wget \
+            desktop-file-utils \
             python3 \
             libwxgtk3.2-dev \
+            libwxgtk-gl3.2-dev \
+            libwxgtk-media3.2-dev \
+            libgl1-mesa-dev \
+            libglu1-mesa-dev \
             libglew-dev \
             libglm-dev \
             libcurl4-openssl-dev \
@@ -56,10 +65,9 @@ jobs:
             unixodbc-dev \
             zlib1g-dev \
             libzstd-dev \
-            gettext \
-            file \
-            wget \
-            desktop-file-utils
+            libharfbuzz-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev
 
       - name: Install mold
         uses: rui314/setup-mold@v1
