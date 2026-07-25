@@ -6,7 +6,7 @@ on:
     tags: [ "10.0.5", "v10.0.5" ]
   workflow_dispatch:
 
-# 赋予创建 GitHub Release 的权限
+# 赋予创建 GitHub Release 和上传产物的写入权限
 permissions:
   contents: write
 
@@ -37,8 +37,9 @@ jobs:
             desktop-file-utils \
             python3 \
             libwxgtk3.2-dev \
-            libwxgtk-gl3.2-dev \
+            libgl-dev \
             libwxgtk-media3.2-dev \
+            libwxgtk-gl3.2-1t64 \
             libgl1-mesa-dev \
             libglu1-mesa-dev \
             libglew-dev \
