@@ -6,6 +6,10 @@ on:
     tags: [ "10.0.5", "v10.0.5" ]
   workflow_dispatch:
 
+# 赋予创建 Release 和上传附件的写入权限
+permissions:
+  contents: write
+
 jobs:
   build-appimage:
     name: Build KiCad 10.0.5 (Ubuntu 24.04)
@@ -32,10 +36,7 @@ jobs:
             libglm-dev \
             libcurl4-openssl-dev \
             libgtk-3-dev \
-            libboost-dev \
-            libboost-filesystem-dev \
-            libboost-system-dev \
-            libboost-test-dev \
+            libboost-all-dev \
             libocct-data-exchange-dev \
             libocct-foundation-dev \
             libocct-modeling-algorithms-dev \
@@ -51,13 +52,18 @@ jobs:
             libpixman-1-dev \
             libgit2-dev \
             libpoppler-glib-dev \
+            libsecret-1-dev \
+            unixodbc-dev \
+            zlib1g-dev \
+            libzstd-dev \
             gettext \
             file \
             wget \
             desktop-file-utils
-            
+
       - name: Install mold
         uses: rui314/setup-mold@v1
+
       - name: Setup CCache
         uses: actions/cache@v4
         with:
@@ -94,7 +100,6 @@ jobs:
       - name: Install to AppDir
         run: |
           cd build/linux
-          # 将编译生成的文件安装到临时 AppDir 目录
           DESTDIR=${{ github.workspace }}/AppDir ninja install
 
       - name: Package AppImage
@@ -103,15 +108,28 @@ jobs:
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
           chmod +x linuxdeploy
 
-          # 在 Ubuntu 24.04 环境下加入 --appimage-extract-and-run 避免缺失 libfuse2 的报错
+          # 生成 AppImage
           ./linuxdeploy --appimage-extract-and-run \
             --appdir AppDir \
             --executable AppDir/usr/bin/kicad \
             --desktop-file AppDir/usr/share/applications/org.kicad.kicad.desktop \
             --output appimage
 
-      - name: Upload AppImage Artifact
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: KiCad-10.0.5-Lite-x86_64.AppImage
           path: "*.AppImage"
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v10.0.5-lite' }}
+          name: KiCad 10.0.5 Lite AppImage
+          body: |
+            KiCad 10.0.5 Lite 自动化构建成品（基于 Ubuntu 24.04）。
+            - 无 3D 模型库
+            - 无 Python 脚本集成
+          draft: false
+          prerelease: false
+          files: "*.AppImage"
