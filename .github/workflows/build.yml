@@ -1,6 +1,9 @@
 name: Build KiCad 10.0.5 Lite AppImage
 
 on:
+  push:
+    branches: [ "main", "master" ]
+    tags: [ "10.0.5", "v10.0.5" ]
   workflow_dispatch:
 
 jobs:
@@ -12,7 +15,7 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
         with:
-          ref: '10.0.5' # 若 tag 为 v10.0.5 请修改为 'v10.0.5'
+          ref: '10.0.5' # 若 tag 格式为 v10.0.5 请修改为 'v10.0.5'
           submodules: recursive
 
       - name: Install Build Dependencies
@@ -43,6 +46,11 @@ jobs:
             libnng-dev \
             protobuf-compiler \
             libprotobuf-dev \
+            libspnav-dev \
+            libcairo2-dev \
+            libpixman-1-dev \
+            libgit2-dev \
+            libpoppler-glib-dev \
             gettext \
             file \
             wget \
@@ -50,7 +58,6 @@ jobs:
             
       - name: Install mold
         uses: rui314/setup-mold@v1
-        
       - name: Setup CCache
         uses: actions/cache@v4
         with:
@@ -87,7 +94,7 @@ jobs:
       - name: Install to AppDir
         run: |
           cd build/linux
-          # 将编译生成的文件安装到 AppDir 目录
+          # 将编译生成的文件安装到临时 AppDir 目录
           DESTDIR=${{ github.workspace }}/AppDir ninja install
 
       - name: Package AppImage
@@ -96,7 +103,7 @@ jobs:
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O linuxdeploy
           chmod +x linuxdeploy
 
-          # 在 Ubuntu 24.04 环境下加上 --appimage-extract-and-run 避免缺失 libfuse2 的报错
+          # 在 Ubuntu 24.04 环境下加入 --appimage-extract-and-run 避免缺失 libfuse2 的报错
           ./linuxdeploy --appimage-extract-and-run \
             --appdir AppDir \
             --executable AppDir/usr/bin/kicad \
