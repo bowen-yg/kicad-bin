@@ -56,7 +56,6 @@ jobs:
             -DKICAD_BUILD_I18N=OFF \
             -DKICAD_SIGNAL_INTEGRITY=OFF \
             -DKICAD_UPDATE_CHECK=OFF \
-            -DKICAD_IDF_TOOLS=OFF \
             -DKICAD_USE_SENTRY=OFF
 
       - name: Build
