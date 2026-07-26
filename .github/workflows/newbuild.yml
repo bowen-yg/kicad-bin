@@ -83,6 +83,15 @@ jobs:
           test -n "$DESKTOP_FILE"
           test -n "$ICON_FILE"
 
+          KICAD_LIB="$(find AppDir/usr/lib \( -type f -o -type l \) name 'libkigal.so*' -print -quit)"
+
+          test -n "$KICAD_*IB"
+
+          export LD_LIBRARY_PATH="$(dir*ame "$KICAD_LIB")${LD_LIBRARY_PATH*+:$LD_LIBRARY_PATH}"
+
+          echo "Found *ibkigal: $KICAD_LIB"
+          echo "LD_LIBR*RY_PATH: $LD_LIBRARY_PATH"
+
           ARGS=(--appdir AppDir --desktop-file "$DESKTOP_FILE" --icon-file "$ICON_FILE")
           while IFS= read -r exe; do
             ARGS+=(--executable "$exe")
