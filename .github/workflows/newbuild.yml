@@ -70,41 +70,77 @@ jobs:
           find AppDir -type f \( -name '*.a' -o -name '*.la' \) -delete
 
       - name: Build AppImage
+        shell: bash
         run: |
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage \
             -O linuxdeploy.AppImage
           chmod +x linuxdeploy.AppImage
 
-          DESKTOP_FILE="$(find AppDir/usr/share/applications -type f -iname '*kicad*.desktop' | head -n1)"
-          ICON_FILE="$(find AppDir/usr/share/icons AppDir/usr/share/kicad -type f \
-            \( -iname 'kicad.svg' -o -iname 'kicad.png' -o -iname 'org.kicad.KiCad.svg' -o -iname 'org.kicad.KiCad.png' \) \
+          DESKTOP_FILE="$(find AppDir/usr/share/applications \
+            -type f -iname '*kicad*.desktop' \
+            -print -quit)"
+
+          ICON_FILE="$(find AppDir/usr/share/icons AppDir/usr/share/kicad \
+            \( -type f -o -type l \) \
+            \( -iname 'kicad.svg' \
+               -o -iname 'kicad.png' \
+               -o -iname 'org.kicad.KiCad.svg' \
+               -o -iname 'org.kicad.KiCad.png' \) \
             2>/dev/null | head -n1)"
 
           test -n "$DESKTOP_FILE"
           test -n "$ICON_FILE"
 
-          KICAD_LIB="$(find AppDir/usr/lib \( -type f -o -type l \) name 'libkigal.so*' -print -quit)"
+          APPDIR_LIBRARY_PATH="$(
+            find AppDir/usr/lib \
+              \( -type f -o -type l \) \
+              -name '*.so*' \
+              -printf '%h\n' \
+            | sort -u \
+            | paste -sd: -
+          )"
 
-          test -n "$KICAD_*IB"
+          test -n "$APPDIR_LIBRARY_PATH"
 
-          export LD_LIBRARY_PATH="$(dir*ame "$KICAD_LIB")${LD_LIBRARY_PATH*+:$LD_LIBRARY_PATH}"
+          export LD_LIBRARY_PATH="$APPDIR_LIBRARY_PATH${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
-          echo "Found *ibkigal: $KICAD_LIB"
-          echo "LD_LIBR*RY_PATH: $LD_LIBRARY_PATH"
+          echo "Desktop file: $DESKTOP_FILE"
+          echo "Icon file: $ICON_FILE"
+          echo "AppDir library directories:"
+          printf '%s\n' "${APPDIR_LIBRARY_PATH//:/$'\n'}"
 
-          ARGS=(--appdir AppDir --desktop-file "$DESKTOP_FILE" --icon-file "$ICON_FILE")
+          ARGS=(
+            --appdir AppDir
+            --desktop-file "$DESKTOP_FILE"
+            --icon-file "$ICON_FILE"
+          )
+
           while IFS= read -r exe; do
             ARGS+=(--executable "$exe")
-          done < <(find AppDir/usr/bin -maxdepth 1 -type f -perm -111 | sort)
+          done < <(
+            find AppDir/usr/bin -maxdepth 1 \
+              -type f \
+              -perm -111 \
+              ! -name '*.kiface' \
+              | sort
+          )
+
+          test "${#ARGS[@]}" -gt 6
 
           APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 \
             ./linuxdeploy.AppImage "${ARGS[@]}" --output appimage
 
-          GENERATED="$(find . -maxdepth 1 -type f -name '*.AppImage' ! -name 'linuxdeploy.AppImage' | head -n1)"
+          GENERATED="$(find . -maxdepth 1 \
+            -type f \
+            -name '*.AppImage' \
+            ! -name 'linuxdeploy.AppImage' \
+            -print -quit)"
+
           test -n "$GENERATED"
-          mv "$GENERATED" "KiCad-Lite-${GITHUB_REF_NAME}-x86_64.AppImage"
-          sha256sum "KiCad-Lite-${GITHUB_REF_NAME}-x86_64.AppImage" \
-            > "KiCad-Lite-${GITHUB_REF_NAME}-x86_64.AppImage.sha256"
+
+          OUTPUT="KiCad-Lite-${GITHUB_REF_NAME}-x86_64.AppImage"
+          mv "$GENERATED" "$OUTPUT"
+          sha256sum "$
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
