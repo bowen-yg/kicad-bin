@@ -12,7 +12,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 360
 
     steps:
       - name: Checkout
@@ -30,7 +29,7 @@ jobs:
             libpoppler-dev libpoppler-glib-dev \
             libglm-dev libglew-dev zlib1g-dev libzstd-dev \
             libcurl4-openssl-dev libspnav-dev libcairo2-dev libpixman-1-dev \
-            libgit2-dev libboost-locale-dev libfreetype-dev libharfbuzz-dev \
+            libgit2-dev libboost-all-dev libfreetype-dev libharfbuzz-dev \
             libfontconfig1-dev libprotobuf-dev libnng-dev unixodbc-dev libsecret-1-dev \
             libwxgtk3.2-dev libwxgtk-webview3.2-dev \
             libgtk-3-dev libgl-dev libglu1-mesa-dev \
@@ -39,9 +38,18 @@ jobs:
             libocct-modeling-algorithms-dev libocct-data-exchange-dev \
             libocct-ocaf-dev libocct-visualization-dev \
             patchelf file wget libfuse2t64
+
       - name: Install mold
         uses: rui314/setup-mold@v1
-        
+
+      - name: Setup CCache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-ubuntu24.04-${{ github.sha }}
+          restore-keys: |
+            ccache-ubuntu24.04-
+
       - name: Configure
         run: |
           cmake -S . -B build -G Ninja \
@@ -53,7 +61,7 @@ jobs:
             -DKICAD_BUILD_QA_TESTS=OFF \
             -DKICAD_SPICE_QA=OFF \
             -DKICAD_INSTALL_DEMOS=OFF \
-            -DKICAD_BUILD_I18N=OFF \
+            -DKICAD_BUILD_I18N=ON \
             -DKICAD_SIGNAL_INTEGRITY=OFF \
             -DKICAD_UPDATE_CHECK=OFF \
             -DKICAD_USE_SENTRY=OFF
@@ -61,12 +69,25 @@ jobs:
       - name: Build
         run: cmake --build build --parallel "$(nproc)"
 
+      - name: CCache stats
+        if: always()
+        run: ccache --show-stats
+
       - name: Install to AppDir
         run: |
-          DESTDIR="$GITHUB_WORKSPACE/AppDir" cmake --install build --strip
+          rm -rf AppDir
+
+          DESTDIR="$GITHUB_WORKSPACE/AppDir" \
+            cmake --install build --strip
+
+          test -x AppDir/usr/bin/kicad
+          test -d AppDir/usr/lib
+          test -d AppDir/usr/share/applications
+
           rm -rf AppDir/usr/share/kicad/demos
           rm -rf AppDir/usr/share/kicad/3dmodels
           rm -rf AppDir/usr/share/kicad/packages3d
+
           find AppDir -type f \( -name '*.a' -o -name '*.la' \) -delete
 
       - name: Build AppImage
@@ -77,7 +98,8 @@ jobs:
           chmod +x linuxdeploy.AppImage
 
           DESKTOP_FILE="$(find AppDir/usr/share/applications \
-            -type f -iname '*kicad*.desktop' \
+            -type f \
+            \( -iname 'org.kicad.KiCad.desktop' -o -iname 'kicad.desktop' \) \
             -print -quit)"
 
           ICON_FILE="$(find AppDir/usr/share/icons AppDir/usr/share/kicad \
@@ -125,8 +147,6 @@ jobs:
               | sort
           )
 
-          test "${#ARGS[@]}" -gt 6
-
           APPIMAGE_EXTRACT_AND_RUN=1 ARCH=x86_64 \
             ./linuxdeploy.AppImage "${ARGS[@]}" --output appimage
 
@@ -139,8 +159,12 @@ jobs:
           test -n "$GENERATED"
 
           OUTPUT="KiCad-Lite-${GITHUB_REF_NAME}-x86_64.AppImage"
-          mv "$GENERATED" "$OUTPUT"
-          sha256sum "$
+
+          mv -- "$GENERATED" "$OUTPUT"
+          sha256sum "$OUTPUT" > "${OUTPUT}.sha256"
+
+          echo "Created: $OUTPUT"
+          ls -lh "$OUTPUT" "${OUTPUT}.sha256"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
